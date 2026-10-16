@@ -1,177 +1,658 @@
 {
   "manifest_version": 1,
   "type": "device",
-  "name": "Demo Devices Template",
+  "name": "Sigenergy",
   "description": {
-    "en": "Starter template showing sensors, a switch, a dimmable light and a smart plug.",
-    "fr": "Template de démarrage : capteurs, interrupteur, lampe variable et prise connectée."
+    "en": "Sigenergy SigenStor over local Modbus TCP: solar, home, grid, battery and energy tracking.",
+    "fr": "SigenStor de Sigenergy en Modbus TCP local : solaire, maison, réseau, batterie, suivi d’énergie.",
+    "de": "Sigenergy SigenStor lokal per Modbus TCP: Solar, Haus, Netz, Batterie und Energieverlauf.",
+    "es": "Sigenergy SigenStor por Modbus TCP local: solar, casa, red, batería y seguimiento de energía."
   },
   "version": "1.0.0",
-  "docker_image": "ghcr.io/gladysassistant/integration-template-js:1.0.0",
+  "docker_image": "ghcr.io/guim31/gladys-sigenergy:1.0.0",
   "gladys_version": ">=5.1.0",
-  "cover_image": "https://raw.githubusercontent.com/GladysAssistant/integration-template-js/master/cover.png",
-  "categories": ["lighting", "security", "environment"],
-  "transports": ["local", "cloud"],
+  "cover_image": "https://raw.githubusercontent.com/guim31/gladys-sigenergy/main/cover.png",
+  "categories": ["energy"],
+  "transports": ["local"],
   "config_schema": [
     {
       "key": "intro",
       "type": "section",
-      "label": { "en": "Getting started", "fr": "Pour commencer" },
+      "label": {
+        "en": "Getting started",
+        "fr": "Pour commencer",
+        "de": "Erste Schritte",
+        "es": "Para empezar"
+      },
       "description": {
-        "en": "The demo weather station reads real data from the free Open-Meteo API: pick the coordinates to observe. No account, no API key.",
-        "fr": "La station météo de démonstration lit de vraies données via l'API gratuite Open-Meteo : choisissez les coordonnées à observer. Pas de compte, pas de clé d'API."
+        "en": "The integration reads your Sigenergy system on the local network, in Modbus TCP (port 502). Modbus TCP must be enabled first: in the mySigen app (or by your installer), turn on Modbus TCP server for the system, note its IP address and the Modbus address (unit id) of each inverter. Save, then add the devices from the Discovery tab.",
+        "fr": "L’intégration lit votre installation Sigenergy sur le réseau local, en Modbus TCP (port 502). Modbus TCP doit d’abord être activé : dans l’appli mySigen (ou par votre installateur), activez le serveur Modbus TCP de l’installation, notez son adresse IP et l’adresse Modbus (identifiant) de chaque onduleur. Enregistrez, puis ajoutez les appareils depuis l’onglet Découverte.",
+        "de": "Die Integration liest deine Sigenergy-Anlage im lokalen Netz per Modbus TCP (Port 502). Modbus TCP muss zuerst aktiviert sein: Schalte in der mySigen-App (oder über deinen Installateur) den Modbus-TCP-Server der Anlage ein und notiere ihre IP-Adresse und die Modbus-Adresse (Unit-ID) jedes Wechselrichters. Speichere und füge die Geräte im Tab „Entdecken“ hinzu.",
+        "es": "La integración lee su instalación Sigenergy en la red local, por Modbus TCP (puerto 502). Primero hay que activar Modbus TCP: en la app mySigen (o a través de su instalador), active el servidor Modbus TCP de la instalación y anote su dirección IP y la dirección Modbus (identificador) de cada inversor. Guarde y añada los dispositivos desde la pestaña Descubrimiento."
       },
       "links": [
         {
-          "url": "https://open-meteo.com/en/docs",
-          "label": { "en": "Open-Meteo documentation", "fr": "Documentation Open-Meteo" }
+          "url": "https://github.com/guim31/gladys-sigenergy/blob/main/docs/en.md#requirements",
+          "label": {
+            "en": "Enable Modbus TCP",
+            "fr": "Activer Modbus TCP",
+            "de": "Modbus TCP aktivieren",
+            "es": "Activar Modbus TCP"
+          }
         }
       ]
     },
     {
-      "key": "latitude",
-      "type": "number",
-      "label": { "en": "Latitude", "fr": "Latitude" },
-      "description": {
-        "en": "Latitude used for the demo weather sensor.",
-        "fr": "Latitude utilisée par le capteur météo de démonstration."
-      },
-      "placeholder": { "en": "e.g. 48.8566", "fr": "ex. 48.8566" },
-      "required": true,
-      "default": 48.8566,
-      "min": -90,
-      "max": 90
-    },
-    {
-      "key": "longitude",
-      "type": "number",
-      "label": { "en": "Longitude", "fr": "Longitude" },
-      "description": {
-        "en": "Longitude used for the demo weather sensor.",
-        "fr": "Longitude utilisée par le capteur météo de démonstration."
-      },
-      "placeholder": { "en": "e.g. 2.3522", "fr": "ex. 2.3522" },
-      "required": true,
-      "default": 2.3522,
-      "min": -180,
-      "max": 180
-    },
-    {
-      "key": "unit",
+      "key": "language",
       "type": "select",
-      "label": { "en": "Temperature unit", "fr": "Unité de température" },
+      "label": {
+        "en": "Language of the feature names",
+        "fr": "Langue des noms de fonctionnalités",
+        "de": "Sprache der Funktionsnamen",
+        "es": "Idioma de los nombres de funciones"
+      },
+      "description": {
+        "en": "Gladys keeps the names given when a device is added.",
+        "fr": "Gladys garde les noms donnés à l’ajout d’un appareil.",
+        "de": "Gladys behält die Namen, die beim Hinzufügen eines Geräts vergeben werden.",
+        "es": "Gladys conserva los nombres dados al añadir un dispositivo."
+      },
       "required": false,
-      "default": "celsius",
+      "default": "fr",
       "options": [
-        { "value": "celsius", "label": { "en": "Celsius", "fr": "Celsius" } },
-        { "value": "fahrenheit", "label": { "en": "Fahrenheit", "fr": "Fahrenheit" } }
+        {
+          "value": "en",
+          "label": {
+            "en": "English",
+            "fr": "Anglais",
+            "de": "Englisch",
+            "es": "Inglés"
+          }
+        },
+        {
+          "value": "fr",
+          "label": {
+            "en": "French",
+            "fr": "Français",
+            "de": "Französisch",
+            "es": "Francés"
+          }
+        },
+        {
+          "value": "de",
+          "label": {
+            "en": "German",
+            "fr": "Allemand",
+            "de": "Deutsch",
+            "es": "Alemán"
+          }
+        },
+        {
+          "value": "es",
+          "label": {
+            "en": "Spanish",
+            "fr": "Espagnol",
+            "de": "Spanisch",
+            "es": "Español"
+          }
+        }
       ]
     },
     {
-      "key": "poll_frequency",
-      "type": "number",
-      "label": { "en": "Refresh interval (s)", "fr": "Intervalle de rafraîchissement (s)" },
+      "key": "host",
+      "type": "string",
+      "label": {
+        "en": "Address of the system",
+        "fr": "Adresse de l’installation",
+        "de": "Adresse der Anlage",
+        "es": "Dirección de la instalación"
+      },
       "description": {
-        "en": "How often sensors are polled, in seconds (one minute minimum).",
-        "fr": "Fréquence d'interrogation des capteurs, en secondes (une minute minimum)."
+        "en": "IP address or host name of the SigenStor (or of the inverter running the Modbus TCP server). Give it a fixed IP in your router.",
+        "fr": "Adresse IP ou nom d’hôte du SigenStor (ou de l’onduleur qui porte le serveur Modbus TCP). Donnez-lui une IP fixe dans votre box.",
+        "de": "IP-Adresse oder Hostname des SigenStor (oder des Wechselrichters mit dem Modbus-TCP-Server). Gib ihm im Router eine feste IP.",
+        "es": "Dirección IP o nombre de host del SigenStor (o del inversor que aloja el servidor Modbus TCP). Asígnele una IP fija en su router."
+      },
+      "placeholder": {
+        "en": "e.g. 192.0.2.10",
+        "fr": "ex. 192.0.2.10",
+        "de": "z. B. 192.0.2.10",
+        "es": "p. ej. 192.0.2.10"
+      },
+      "required": true
+    },
+    {
+      "key": "port",
+      "type": "number",
+      "label": {
+        "en": "Modbus TCP port",
+        "fr": "Port Modbus TCP",
+        "de": "Modbus-TCP-Port",
+        "es": "Puerto Modbus TCP"
+      },
+      "description": {
+        "en": "502 unless your installer changed it.",
+        "fr": "502, sauf si votre installateur l’a changé.",
+        "de": "502, außer dein Installateur hat ihn geändert.",
+        "es": "502, salvo si su instalador lo ha cambiado."
       },
       "required": false,
-      "default": 300,
-      "min": 60,
-      "max": 3600
+      "default": 502,
+      "min": 1,
+      "max": 65535
+    },
+    {
+      "key": "inverter_unit_ids",
+      "type": "string",
+      "label": {
+        "en": "Inverter unit ids",
+        "fr": "Identifiants des onduleurs",
+        "de": "Unit-IDs der Wechselrichter",
+        "es": "Identificadores de los inversores"
+      },
+      "description": {
+        "en": "The Modbus address of each inverter, as set in the mySigen app, separated by commas (1 by default; an AC charger often takes 1, the inverter then 2). Up to 8.",
+        "fr": "L’adresse Modbus de chaque onduleur, telle que réglée dans l’appli mySigen, séparées par des virgules (1 par défaut ; une borne AC prend souvent le 1, l’onduleur a alors le 2). 8 au plus.",
+        "de": "Die Modbus-Adresse jedes Wechselrichters, wie in der mySigen-App eingestellt, durch Kommas getrennt (Standard 1; ein AC-Ladegerät belegt oft die 1, der Wechselrichter hat dann die 2). Höchstens 8.",
+        "es": "La dirección Modbus de cada inversor, tal como está configurada en la app mySigen, separadas por comas (1 por defecto; un cargador AC suele usar el 1 y el inversor entonces el 2). Como máximo 8."
+      },
+      "placeholder": {
+        "en": "e.g. 1 or 1, 2",
+        "fr": "ex. 1 ou 1, 2",
+        "de": "z. B. 1 oder 1, 2",
+        "es": "p. ej. 1 o 1, 2"
+      },
+      "required": false,
+      "default": "1"
+    },
+    {
+      "key": "plant_unit_id",
+      "type": "number",
+      "label": {
+        "en": "Plant unit id",
+        "fr": "Identifiant de l’installation",
+        "de": "Unit-ID der Anlage",
+        "es": "Identificador de la instalación"
+      },
+      "description": {
+        "en": "247 in the Sigenergy protocol: do not change it unless told so.",
+        "fr": "247 dans le protocole Sigenergy : ne le changez que si on vous le demande.",
+        "de": "247 im Sigenergy-Protokoll: Ändere es nur, wenn man es dir sagt.",
+        "es": "247 en el protocolo Sigenergy: no lo cambie salvo que se lo indiquen."
+      },
+      "required": false,
+      "default": 247,
+      "min": 1,
+      "max": 247
+    },
+    {
+      "key": "poll_interval",
+      "type": "select",
+      "label": {
+        "en": "Refresh interval",
+        "fr": "Intervalle de rafraîchissement",
+        "de": "Aktualisierungsintervall",
+        "es": "Intervalo de actualización"
+      },
+      "description": {
+        "en": "How often the system is read. Only the values that change are sent to Gladys.",
+        "fr": "Fréquence de lecture de l’installation. Seules les valeurs qui changent sont envoyées à Gladys.",
+        "de": "Wie oft die Anlage gelesen wird. Nur geänderte Werte werden an Gladys gesendet.",
+        "es": "Frecuencia de lectura de la instalación. Solo se envían a Gladys los valores que cambian."
+      },
+      "required": false,
+      "default": "15",
+      "options": [
+        {
+          "value": "10",
+          "label": {
+            "en": "10 seconds",
+            "fr": "10 secondes",
+            "de": "10 Sekunden",
+            "es": "10 segundos"
+          }
+        },
+        {
+          "value": "15",
+          "label": {
+            "en": "15 seconds",
+            "fr": "15 secondes",
+            "de": "15 Sekunden",
+            "es": "15 segundos"
+          }
+        },
+        {
+          "value": "30",
+          "label": {
+            "en": "30 seconds",
+            "fr": "30 secondes",
+            "de": "30 Sekunden",
+            "es": "30 segundos"
+          }
+        },
+        {
+          "value": "60",
+          "label": {
+            "en": "1 minute",
+            "fr": "1 minute",
+            "de": "1 Minute",
+            "es": "1 minuto"
+          }
+        },
+        {
+          "value": "120",
+          "label": {
+            "en": "2 minutes",
+            "fr": "2 minutes",
+            "de": "2 Minuten",
+            "es": "2 minutos"
+          }
+        },
+        {
+          "value": "300",
+          "label": {
+            "en": "5 minutes",
+            "fr": "5 minutes",
+            "de": "5 Minuten",
+            "es": "5 minutos"
+          }
+        }
+      ]
+    },
+    {
+      "key": "control",
+      "type": "section",
+      "label": {
+        "en": "Battery control",
+        "fr": "Pilotage de la batterie",
+        "de": "Batteriesteuerung",
+        "es": "Control de la batería"
+      },
+      "description": {
+        "en": "Off by default: the integration then only reads. When allowed, Gladys can switch the battery mode (automatic, forced charge or discharge) and set its charge and discharge power limits, from the devices, the widget and scenes. These commands override the mode chosen in the mySigen app until set back to automatic: use them knowingly.",
+        "fr": "Désactivé par défaut : l’intégration ne fait alors que lire. Une fois autorisé, Gladys peut changer le mode de la batterie (automatique, charge ou décharge forcée) et régler ses limites de puissance de charge et de décharge, depuis les appareils, le widget et les scènes. Ces commandes priment sur le mode choisi dans l’appli mySigen jusqu’au retour en automatique : utilisez-les en connaissance de cause.",
+        "de": "Standardmäßig aus: Die Integration liest dann nur. Wenn erlaubt, kann Gladys den Batteriemodus umschalten (automatisch, Zwangsladung oder -entladung) und die Lade- und Entladeleistungsgrenzen setzen, über die Geräte, das Widget und Szenen. Diese Befehle haben Vorrang vor dem in der mySigen-App gewählten Modus, bis du wieder auf automatisch stellst: Nutze sie bewusst.",
+        "es": "Desactivado por defecto: la integración entonces solo lee. Una vez permitido, Gladys puede cambiar el modo de la batería (automático, carga o descarga forzada) y fijar sus límites de potencia de carga y descarga, desde los dispositivos, el widget y las escenas. Estas órdenes prevalecen sobre el modo elegido en la app mySigen hasta volver a automático: úselas con conocimiento de causa."
+      }
+    },
+    {
+      "key": "allow_control",
+      "type": "boolean",
+      "label": {
+        "en": "Allow battery control",
+        "fr": "Autoriser le pilotage de la batterie",
+        "de": "Batteriesteuerung erlauben",
+        "es": "Permitir el control de la batería"
+      },
+      "description": {
+        "en": "Adds the control features to the system device (click Update in the Discovery tab).",
+        "fr": "Ajoute les fonctionnalités de pilotage à l’appareil de l’installation (cliquez sur Mettre à jour dans l’onglet Découverte).",
+        "de": "Fügt dem Gerät der Anlage die Steuerfunktionen hinzu (klicke im Tab „Entdecken“ auf Aktualisieren).",
+        "es": "Añade las funciones de control al dispositivo de la instalación (pulse Actualizar en la pestaña Descubrimiento)."
+      },
+      "required": false,
+      "default": false
     }
   ],
   "actions": [
     {
-      "key": "test_weather",
-      "label": { "en": "Test the weather provider", "fr": "Tester le fournisseur météo" },
-      "timeout_seconds": 30
-    },
-    {
-      "key": "identify",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ]
+      "key": "test_connection",
+      "label": {
+        "en": "Test the connection",
+        "fr": "Tester la connexion",
+        "de": "Verbindung testen",
+        "es": "Probar la conexión"
+      },
+      "description": {
+        "en": "Reads the plant and the inverters once and says what answers. When no configured inverter answers, looks for inverters at unit ids 1 to 16.",
+        "fr": "Lit une fois l’installation et les onduleurs et indique ce qui répond. Si aucun onduleur configuré ne répond, cherche les onduleurs aux identifiants 1 à 16.",
+        "de": "Liest die Anlage und die Wechselrichter einmal und zeigt, was antwortet. Antwortet kein konfigurierter Wechselrichter, sucht es Wechselrichter unter den Unit-IDs 1 bis 16.",
+        "es": "Lee una vez la instalación y los inversores e indica qué responde. Si ningún inversor configurado responde, busca inversores en los identificadores 1 a 16."
+      },
+      "timeout_seconds": 60
     }
   ],
   "scene_triggers": [
     {
-      "key": "motion_detected",
-      "label": { "en": "Motion detected", "fr": "Mouvement détecté" },
+      "key": "alarm_raised",
+      "label": {
+        "en": "A Sigenergy alarm is raised",
+        "fr": "Une alarme Sigenergy se déclenche",
+        "de": "Ein Sigenergy-Alarm wird ausgelöst",
+        "es": "Se activa una alarma Sigenergy"
+      },
       "description": {
-        "en": "A demo motion sensor saw a person or an animal move.",
-        "fr": "Un détecteur de démonstration a vu bouger une personne ou un animal."
+        "en": "A new alarm appears on the system (inverter, battery, gateway, DC charger), with its text.",
+        "fr": "Une nouvelle alarme apparaît sur l’installation (onduleur, batterie, passerelle, borne DC), avec son texte.",
+        "de": "Ein neuer Alarm erscheint an der Anlage (Wechselrichter, Batterie, Gateway, DC-Ladegerät), mit seinem Text.",
+        "es": "Aparece una nueva alarma en la instalación (inversor, batería, pasarela, cargador DC), con su texto."
       },
       "fields": [
         {
           "key": "device",
           "type": "select",
           "source": "devices",
-          "label": { "en": "Sensor", "fr": "Détecteur" }
-        },
-        {
-          "key": "target",
-          "type": "multi_select",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" },
-          "options": [
-            { "value": "person", "label": { "en": "Person", "fr": "Personne" } },
-            { "value": "animal", "label": { "en": "Animal", "fr": "Animal" } }
-          ]
+          "label": {
+            "en": "System (empty: any)",
+            "fr": "Installation (vide : n’importe laquelle)",
+            "de": "Anlage (leer: beliebig)",
+            "es": "Instalación (vacío: cualquiera)"
+          }
         }
       ],
       "variables": [
         {
-          "key": "target",
+          "key": "device_name",
           "type": "string",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" }
+          "label": {
+            "en": "Device name",
+            "fr": "Nom de l’appareil",
+            "de": "Gerätename",
+            "es": "Nombre del dispositivo"
+          }
+        },
+        {
+          "key": "alarm",
+          "type": "string",
+          "label": {
+            "en": "New alarm(s)",
+            "fr": "Nouvelle(s) alarme(s)",
+            "de": "Neue(r) Alarm(e)",
+            "es": "Alarma(s) nueva(s)"
+          }
+        },
+        {
+          "key": "alarms",
+          "type": "string",
+          "label": {
+            "en": "All active alarms",
+            "fr": "Toutes les alarmes actives",
+            "de": "Alle aktiven Alarme",
+            "es": "Todas las alarmas activas"
+          }
+        }
+      ]
+    },
+    {
+      "key": "system_unreachable",
+      "label": {
+        "en": "The Sigenergy system stops answering",
+        "fr": "L’installation Sigenergy ne répond plus",
+        "de": "Die Sigenergy-Anlage antwortet nicht mehr",
+        "es": "La instalación Sigenergy deja de responder"
+      },
+      "description": {
+        "en": "Two reads in a row failed (network, Modbus TCP turned off, system off).",
+        "fr": "Deux lectures de suite ont échoué (réseau, Modbus TCP désactivé, installation éteinte).",
+        "de": "Zwei Abfragen in Folge sind fehlgeschlagen (Netzwerk, Modbus TCP aus, Anlage aus).",
+        "es": "Dos lecturas seguidas han fallado (red, Modbus TCP desactivado, instalación apagada)."
+      },
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "System (empty: any)",
+            "fr": "Installation (vide : n’importe laquelle)",
+            "de": "Anlage (leer: beliebig)",
+            "es": "Instalación (vacío: cualquiera)"
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "device_name",
+          "type": "string",
+          "label": {
+            "en": "Device name",
+            "fr": "Nom de l’appareil",
+            "de": "Gerätename",
+            "es": "Nombre del dispositivo"
+          }
+        },
+        {
+          "key": "error",
+          "type": "string",
+          "label": {
+            "en": "Error",
+            "fr": "Erreur",
+            "de": "Fehler",
+            "es": "Error"
+          }
+        }
+      ]
+    },
+    {
+      "key": "system_reachable",
+      "label": {
+        "en": "The Sigenergy system answers again",
+        "fr": "L’installation Sigenergy répond de nouveau",
+        "de": "Die Sigenergy-Anlage antwortet wieder",
+        "es": "La instalación Sigenergy vuelve a responder"
+      },
+      "description": {
+        "en": "A system that had stopped answering is read again.",
+        "fr": "Une installation qui ne répondait plus est lue de nouveau.",
+        "de": "Eine Anlage, die nicht mehr antwortete, wird wieder gelesen.",
+        "es": "Una instalación que había dejado de responder vuelve a leerse."
+      },
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "System (empty: any)",
+            "fr": "Installation (vide : n’importe laquelle)",
+            "de": "Anlage (leer: beliebig)",
+            "es": "Instalación (vacío: cualquiera)"
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "device_name",
+          "type": "string",
+          "label": {
+            "en": "Device name",
+            "fr": "Nom de l’appareil",
+            "de": "Gerätename",
+            "es": "Nombre del dispositivo"
+          }
         }
       ]
     }
   ],
   "scene_actions": [
     {
-      "key": "identify_device",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "description": {
-        "en": "Make a device signal itself (the demo light blinks).",
-        "fr": "Fait se signaler un appareil (la lampe de démonstration clignote)."
+      "key": "set_battery_mode",
+      "label": {
+        "en": "Set the Sigenergy battery mode",
+        "fr": "Régler le mode de la batterie Sigenergy",
+        "de": "Sigenergy-Batteriemodus einstellen",
+        "es": "Ajustar el modo de la batería Sigenergy"
       },
-      "timeout_seconds": 15,
+      "description": {
+        "en": "Automatic (back to the app mode), forced charge or discharge, standby. Needs battery control allowed in the configuration.",
+        "fr": "Automatique (retour au mode de l’appli), charge ou décharge forcée, veille. Le pilotage doit être autorisé dans la configuration.",
+        "de": "Automatisch (zurück zum App-Modus), Zwangsladung oder -entladung, Standby. Die Steuerung muss in der Konfiguration erlaubt sein.",
+        "es": "Automático (vuelta al modo de la app), carga o descarga forzada, en espera. El control debe estar permitido en la configuración."
+      },
+      "timeout_seconds": 20,
       "fields": [
         {
-          "key": "device",
+          "key": "mode",
           "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
+          "label": {
+            "en": "Mode",
+            "fr": "Mode",
+            "de": "Modus",
+            "es": "Modo"
+          },
+          "required": true,
+          "options": [
+            {
+              "value": "auto",
+              "label": {
+                "en": "Automatic (app mode)",
+                "fr": "Automatique (mode de l’appli)",
+                "de": "Automatisch (App-Modus)",
+                "es": "Automático (modo de la app)"
+              }
+            },
+            {
+              "value": "self_consumption",
+              "label": {
+                "en": "Maximum self-consumption",
+                "fr": "Autoconsommation maximale",
+                "de": "Maximaler Eigenverbrauch",
+                "es": "Autoconsumo máximo"
+              }
+            },
+            {
+              "value": "charge_grid",
+              "label": {
+                "en": "Forced charge (grid first)",
+                "fr": "Charge forcée (réseau d’abord)",
+                "de": "Zwangsladung (Netz zuerst)",
+                "es": "Carga forzada (red primero)"
+              }
+            },
+            {
+              "value": "charge_pv",
+              "label": {
+                "en": "Forced charge (solar first)",
+                "fr": "Charge forcée (solaire d’abord)",
+                "de": "Zwangsladung (Solar zuerst)",
+                "es": "Carga forzada (solar primero)"
+              }
+            },
+            {
+              "value": "discharge_pv",
+              "label": {
+                "en": "Forced discharge (solar first)",
+                "fr": "Décharge forcée (solaire d’abord)",
+                "de": "Zwangsentladung (Solar zuerst)",
+                "es": "Descarga forzada (solar primero)"
+              }
+            },
+            {
+              "value": "discharge_ess",
+              "label": {
+                "en": "Forced discharge (battery first)",
+                "fr": "Décharge forcée (batterie d’abord)",
+                "de": "Zwangsentladung (Batterie zuerst)",
+                "es": "Descarga forzada (batería primero)"
+              }
+            },
+            {
+              "value": "standby",
+              "label": {
+                "en": "Standby (battery idle)",
+                "fr": "Veille (batterie au repos)",
+                "de": "Standby (Batterie ruht)",
+                "es": "En espera (batería en reposo)"
+              }
+            }
+          ]
         }
       ],
       "outputs": [
         {
-          "key": "signalled",
-          "type": "boolean",
-          "label": { "en": "Device signalled", "fr": "Appareil signalé" }
+          "key": "mode",
+          "type": "string",
+          "label": {
+            "en": "Mode applied",
+            "fr": "Mode appliqué",
+            "de": "Angewendeter Modus",
+            "es": "Modo aplicado"
+          }
+        }
+      ]
+    },
+    {
+      "key": "set_battery_limits",
+      "label": {
+        "en": "Set the Sigenergy battery limits",
+        "fr": "Régler les limites de la batterie Sigenergy",
+        "de": "Sigenergy-Batteriegrenzen einstellen",
+        "es": "Ajustar los límites de la batería Sigenergy"
+      },
+      "description": {
+        "en": "Maximum charge and/or discharge power, in watts, from 0 to the rated power. Needs battery control allowed in the configuration.",
+        "fr": "Puissance maximale de charge et/ou de décharge, en watts, de 0 à la puissance nominale. Le pilotage doit être autorisé dans la configuration.",
+        "de": "Maximale Lade- und/oder Entladeleistung in Watt, von 0 bis zur Nennleistung. Die Steuerung muss in der Konfiguration erlaubt sein.",
+        "es": "Potencia máxima de carga y/o descarga, en vatios, de 0 a la potencia nominal. El control debe estar permitido en la configuración."
+      },
+      "timeout_seconds": 20,
+      "fields": [
+        {
+          "key": "charge_limit_w",
+          "type": "number",
+          "label": {
+            "en": "Charge limit (W, empty: unchanged)",
+            "fr": "Limite de charge (W, vide : inchangée)",
+            "de": "Ladegrenze (W, leer: unverändert)",
+            "es": "Límite de carga (W, vacío: sin cambios)"
+          },
+          "min": 0,
+          "max": 100000
+        },
+        {
+          "key": "discharge_limit_w",
+          "type": "number",
+          "label": {
+            "en": "Discharge limit (W, empty: unchanged)",
+            "fr": "Limite de décharge (W, vide : inchangée)",
+            "de": "Entladegrenze (W, leer: unverändert)",
+            "es": "Límite de descarga (W, vacío: sin cambios)"
+          },
+          "min": 0,
+          "max": 100000
+        }
+      ],
+      "outputs": [
+        {
+          "key": "charge_limit_w",
+          "type": "number",
+          "label": {
+            "en": "Charge limit (W)",
+            "fr": "Limite de charge (W)",
+            "de": "Ladegrenze (W)",
+            "es": "Límite de carga (W)"
+          }
+        },
+        {
+          "key": "discharge_limit_w",
+          "type": "number",
+          "label": {
+            "en": "Discharge limit (W)",
+            "fr": "Limite de décharge (W)",
+            "de": "Entladegrenze (W)",
+            "es": "Límite de descarga (W)"
+          }
         }
       ]
     }
   ],
   "widgets": [
     {
-      "key": "demo_status",
-      "label": { "en": "Demo status", "fr": "État de la démo" },
-      "description": {
-        "en": "Live temperature and plug power, plug connection and observed location.",
-        "fr": "Température et puissance en direct, connexion de la prise, position observée."
+      "key": "energy_flow",
+      "label": {
+        "en": "Sigenergy energy",
+        "fr": "Énergie Sigenergy",
+        "de": "Sigenergy-Energie",
+        "es": "Energía Sigenergy"
       },
-      "icon": "activity",
-      "action_timeout_seconds": 15
+      "description": {
+        "en": "Solar, home, grid and battery live, the mode and the alarms.",
+        "fr": "Solaire, maison, réseau et batterie en direct, le mode et les alarmes.",
+        "de": "Solar, Haus, Netz und Batterie live, Modus und Alarme.",
+        "es": "Solar, casa, red y batería en directo, el modo y las alarmas."
+      },
+      "icon": "sun",
+      "action_timeout_seconds": 20
     }
   ]
 }

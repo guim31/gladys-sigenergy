@@ -1,77 +1,113 @@
+// -----------------------------------------------------------------------------
+// The "Sigenergy energy" widget: rendered exactly as sent (vocabulary and
+// budget of the core, validateWidgetContent), its live tiles bound to
+// features the devices really have, its buttons only with control on.
+// -----------------------------------------------------------------------------
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { validateWidgetContent } from '@gladysassistant/integration-sdk';
-import { createFakeGladys } from '@gladysassistant/integration-sdk/testing';
-import { buildDiscoveredDevices } from '../src/devices/index.js';
-import { simulateLanSession } from '../src/devices/plug.js';
-import { DEMO_STATUS_WIDGET, WIDGETS, refreshWidgets } from '../src/widgets.js';
-import { normalizeConfig } from '../src/config.js';
+import { PLANT_FR, createWorld } from './helpers/world.js';
+import { hybridThreePhasePair, sigenStorSinglePhase } from './fixtures/sigenergy.js';
 
-const gladys = createFakeGladys();
-const config = normalizeConfig();
-const demoStatus = WIDGETS[DEMO_STATUS_WIDGET];
+async function content(world, language = 'fr') {
+  const ack = await world.fake.widgetGet('energy_flow', {
+    settings: {},
+    language,
+    units: 'metric',
+  });
+  assert.equal(ack.success, true, ack.error);
+  return ack.data.content ?? ack.data;
+}
 
-// What the SDK passes to onWidgetGet, plus the config index.js adds.
-const getContent = (cfg = config) =>
-  demoStatus.get(gladys, { settings: {}, language: 'en', units: 'metric', config: cfg });
-
-test('the demo_status content is rendered exactly as sent', async () => {
-  // [] = nothing the core would drop, truncate or trim to the content budget.
-  assert.deepEqual(validateWidgetContent(await getContent()), []);
-});
-
-test('the degraded plug connection content is valid too', async () => {
-  simulateLanSession(false);
-  try {
-    const content = await getContent();
-    assert.deepEqual(validateWidgetContent(content), []);
-    const status = content.components.find((component) => component.type === 'status');
-    assert.ok(
-      status.items.some((item) => item.color === 'warning'),
-      'degraded shows a warning',
-    );
-  } finally {
-    simulateLanSession(true);
-  }
-});
-
-test('the live tiles reference features the integration publishes', async () => {
-  const featureIds = new Set(
-    buildDiscoveredDevices(gladys, config).flatMap((device) =>
-      device.features.map((feature) => feature.external_id),
-    ),
+function boundFeatures(world, widget) {
+  const ids = new Set(
+    world.fake.discoveredDevices.flatMap((device) => device.features.map((f) => f.external_id)),
   );
-  const liveTiles = (await getContent()).components.filter((c) => c.device_feature);
-  assert.ok(liveTiles.length > 0, 'the template demonstrates a device-bound tile');
-  for (const tile of liveTiles) {
-    assert.ok(featureIds.has(tile.device_feature), `unknown feature ${tile.device_feature}`);
+  for (const component of widget.components.filter((c) => c.device_feature)) {
+    assert.ok(ids.has(component.device_feature), `${component.device_feature} does not exist`);
   }
-});
+}
 
-test('every button action of the content is handled and answers a short toast', async () => {
-  const buttons = (await getContent()).components.filter((c) => c.type === 'button' && c.action);
-  assert.ok(buttons.length > 0, 'the template demonstrates a widget action');
-  for (const { action } of buttons) {
-    const message = await demoStatus.action(gladys, {
-      actionKey: action.key,
-      params: action.params ?? {},
-      settings: {},
-      config,
+for (const control of [false, true]) {
+  test(`the widget fits the core budget and binds existing features (control ${control ? 'on' : 'off'})`, async () => {
+    const world = await createWorld({
+      units: sigenStorSinglePhase(),
+      config: () => ({ allow_control: control }),
     });
-    assert.ok(message.en, 'the toast carries at least the mandatory `en` text');
-    assert.ok(message.en.length <= 200, 'toasts are capped at 200 characters');
+    try {
+      for (const language of ['en', 'fr', 'de', 'es']) {
+        const widget = await content(world, language);
+        assert.deepEqual(validateWidgetContent(widget), [], language);
+        assert.ok(widget.components.length <= 8);
+        boundFeatures(world, widget);
+        const types = widget.components.map((component) => component.type);
+        assert.deepEqual(types.slice(0, 5), ['value', 'value', 'value', 'gauge', 'status']);
+        const buttons = widget.components.filter((component) => component.type === 'button');
+        assert.equal(buttons.length, control ? 3 : 0);
+        if (control) {
+          const keys = buttons.map((button) => button.action.key);
+          assert.equal(new Set(keys).size, keys.length, 'distinct action keys');
+          assert.ok(buttons.every((button) => button.action.confirm === true));
+          // The current mode (auto) is marked by its icon, never by the style.
+          assert.equal(buttons[0].icon, 'check-circle');
+          assert.ok(buttons.every((button) => button.style === 'secondary'));
+        }
+      }
+      const status = (await content(world)).components.find((c) => c.type === 'status');
+      assert.deepEqual(
+        status.items.map((item) => item.value),
+        ['En charge, 1,1 kW', 'Autoconsommation maximale', 'Aucune'],
+      );
+    } finally {
+      await world.stop();
+    }
+  });
+}
+
+test('without battery: three tiles, no gauge, no button; the alarm shows', async () => {
+  const world = await createWorld({
+    units: hybridThreePhasePair(),
+    config: () => ({ language: 'en', allow_control: true, inverter_unit_ids: '1, 2' }),
+  });
+  try {
+    const widget = await content(world, 'en');
+    assert.deepEqual(validateWidgetContent(widget), []);
+    assert.deepEqual(
+      widget.components.map((component) => component.type),
+      ['value', 'value', 'value', 'status'],
+    );
+    const status = widget.components.at(-1);
+    assert.equal(status.items.at(-1).value, 'Inverter: grid power outage');
+    assert.equal(status.items.at(-1).color, 'danger');
+  } finally {
+    await world.stop();
   }
 });
 
-test('an unknown widget action fails, so the user sees the error', async () => {
-  await assert.rejects(
-    demoStatus.action(gladys, { actionKey: 'unknown', params: {}, settings: {}, config }),
-    /Unknown widget action/,
-  );
+test('before the system is added to Gladys, the widget says what to do', async () => {
+  const world = await createWorld({ units: sigenStorSinglePhase(), createAll: false });
+  try {
+    const widget = await content(world, 'fr');
+    assert.deepEqual(validateWidgetContent(widget), []);
+    assert.equal(widget.components[0].type, 'text');
+    assert.match(widget.components[0].text.fr, /onglet Découverte/);
+  } finally {
+    await world.stop();
+  }
 });
 
-test('refreshWidgets nudges every widget', () => {
-  const fresh = createFakeGladys();
-  refreshWidgets(fresh);
-  assert.deepEqual(fresh.fake.widgetRefreshes, Object.keys(WIDGETS));
+test('a system that stops answering shows it in the widget', async () => {
+  const world = await createWorld({ units: sigenStorSinglePhase() });
+  try {
+    world.server.behaviour.mute = true;
+    // Lost after two failed reads in a row.
+    await world.app.poller.cycle({ force: true });
+    await world.app.poller.cycle({ force: true });
+    const status = (await content(world)).components.find((c) => c.type === 'status');
+    assert.equal(status.items.at(-1).value, 'Ne répond pas');
+    assert.equal(world.device(PLANT_FR) !== undefined, true);
+  } finally {
+    await world.stop();
+  }
 });
