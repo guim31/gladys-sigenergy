@@ -30,6 +30,25 @@ Gladys before reporting a problem.
 
 In scope: the code of this repository and the Docker image it publishes.
 
+What the integration stores and sends:
+
+- `/data/sigenergy-layouts.json` holds what the probe found: the model,
+  serial number and firmware of each inverter, its phases and PV strings, the
+  rated powers and which registers the firmware implements. No secret: the
+  configuration has none (Modbus TCP has no authentication).
+- It opens one Modbus TCP connection to the address of the configuration
+  (port 502 by default) and nowhere else; it reads the plant and inverter
+  registers, and writes only the four battery control registers (40029,
+  40031, 40032, 40034), only when battery control is allowed in the
+  configuration.
+- The logs never hold a password or an address with credentials; the serial
+  numbers are masked in the output of the "Test the connection" button and
+  of `scripts/probe.mjs`.
+
+Modbus TCP itself is unauthenticated: anyone on the local network who can
+reach port 502 of the system can read and write it, with or without this
+integration. Keep the system on a trusted network.
+
 Out of scope: Gladys Assistant itself (see its
 [security policy](https://github.com/GladysAssistant/Gladys/security/policy)),
-and the third-party services and devices the integration talks to.
+the Sigenergy system, its firmware and the mySigen app.

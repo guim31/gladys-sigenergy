@@ -1,61 +1,229 @@
-# Demo Devices Template
+# Sigenergy
 
-This is the user documentation of the integration. Gladys re-hosts this file
-and shows a permanent **Documentation** link to it in the Configuration screen
-(in the user's language, with English as the fallback) — it is when
-configuring that the user needs it most. Keep the short onboarding hints in
-the `section` blocks of the manifest `config_schema`; put the long
-step-by-step (screenshots, troubleshooting…) here.
+Reads a **Sigenergy** system — SigenStor, Sigen Hybrid, their batteries — on the
+local network, in **Modbus TCP**, with the registers Sigenergy publishes in its
+"Sigenergy Modbus Protocol" (V2.9). No cloud, no account, nothing to declare
+register by register: solar, home, grid and battery appear in Gladys as
+devices, with the cumulative indexes of energy tracking.
 
-## What you get
+> **Developed without the hardware: feedback welcome.** The integration follows
+> the official protocol document and is tested against a simulated Sigenergy
+> system built from it, not against a real one. Please report what works and
+> what does not in the
+> [issues](https://github.com/guim31/gladys-sigenergy/issues), with the result
+> of the **Test the connection** button.
 
-Six demo devices show up after installation: a weather station (real data
-from Open-Meteo), a switch, a dimmable light, a smart plug with power
-metering, a motion sensor and a camera.
+This integration is not affiliated with Sigenergy Technology Co., Ltd.
+Sigenergy, SigenStor and mySigen are trademarks of their owners.
+
+## What it does
+
+- **One device for the system** (the "plant" of the protocol): solar power,
+  home consumption, grid exchange (import and export), battery level, charge
+  and discharge power, energy available, battery health, the cumulative
+  indexes (solar production, home consumption, grid import and export, battery
+  charged and discharged), the operating mode, the state, off-grid operation
+  and the alarms.
+- **One device per inverter**: its power, solar power, battery, phase voltages
+  and currents, the voltage and current of each PV string, its temperatures,
+  its state and its alarms.
+- **Battery control, off by default**: battery mode (automatic, forced charge
+  or discharge, standby) and charge and discharge power limits.
+- **A dashboard widget**: solar, home, grid and battery at a glance.
+- **Scene triggers** (a new alarm, the system stops or starts answering) and
+  **scene actions** (set the battery mode, set the limits).
+
+## Requirements
+
+- Gladys Assistant 5.1 or later (5.2 for energy tracking).
+- A Sigenergy system on the same network as Gladys, with a fixed IP address
+  (a DHCP reservation in your router).
+- **Modbus TCP enabled** on the system (see below). The integration speaks
+  plain Modbus TCP on port 502; Modbus over RS-485 is not supported.
+
+### Enable Modbus TCP
+
+Modbus TCP is off on a new system. In the **mySigen** app, open your system,
+then its settings, and look for the **Modbus TCP server** option (under the
+communication settings); turn it on and **save**. On many accounts this menu
+is only shown to the installer: ask yours to enable it. The menu names depend
+on the version of the app.
+
+### Find the unit ids
+
+Each device of a Sigenergy system has a Modbus address, its **unit id**, set in
+the mySigen app:
+
+- the **plant** (the whole system) always answers at **247**;
+- each **inverter** has its own, from 1 to 246: **1** on most single-inverter
+  systems. An **AC charger** usually takes 1, and the inverter then has
+  another one (2, for example).
+
+Not sure? Enter the address of the system, save, and press **Test the
+connection**: when no configured inverter answers, it looks for them at unit
+ids 1 to 16.
 
 ## Configuration
 
-1. Open the **Configuration** tab of the integration.
-2. Set the **latitude** and **longitude** the demo weather station should
-   observe (they default to Paris), and pick your temperature unit.
-   The **refresh interval** sets how often the weather station and the
-   plug's power are read: every 5 minutes by default, every minute at most.
-3. Save: the devices appear in the **Discovery** tab, ready to be added.
+| Field                 | Description                                                                                             |
+| --------------------- | ------------------------------------------------------------------------------------------------------- |
+| Language              | Language of the feature names (French by default). Gladys keeps the names given when a device is added. |
+| Address of the system | IP address or host name of the SigenStor, or of the inverter running the Modbus TCP server.             |
+| Modbus TCP port       | 502 unless your installer changed it.                                                                   |
+| Inverter unit ids     | The unit id of each inverter, separated by commas (1 by default, 8 at most).                            |
+| Plant unit id         | 247 in the protocol: leave it.                                                                          |
+| Refresh interval      | 10 s to 5 min (15 s by default). Only the values that change are sent.                                  |
+| Allow battery control | Off by default. See [Battery control](#battery-control).                                                |
 
-The **Prefer the local connection** toggle drives the demo plug: it reports
-the channel it actually uses as a badge (local or cloud), with an orange dot
-when it runs degraded (local refused, cloud fallback).
+Save, then add the devices from the **Discovery** tab of the integration.
+
+## Devices
+
+### The system
+
+| Feature                                     | Unit      | Notes                                                                                 |
+| ------------------------------------------- | --------- | ------------------------------------------------------------------------------------- |
+| Solar power                                 | W         | Never negative.                                                                       |
+| Home consumption                            | W         | The "total load power" register, or computed on older firmwares.                      |
+| Grid exchange                               | W         | Positive when importing, negative when exporting.                                     |
+| Grid import, Grid export                    | W         | The same exchange, split in two positive values.                                      |
+| Battery level                               | %         | Battery systems only.                                                                 |
+| Battery charge power, discharge power       | W         |                                                                                       |
+| Battery energy available                    | kWh       | What the battery can still give.                                                      |
+| Battery health                              | %         | State of health, when the firmware gives it.                                          |
+| Solar production (total)                    | kWh       | Cumulative index.                                                                     |
+| Home consumption (total)                    | kWh       | Cumulative index, used by energy tracking.                                            |
+| Grid import (total), Grid export (total)    | kWh       | Cumulative indexes.                                                                   |
+| Battery charged (total), discharged (total) | kWh       | Cumulative indexes.                                                                   |
+| Operating mode                              | text      | Maximum self-consumption, AI mode, time of use, full feed-in, remote control, custom. |
+| System state                                | text      | Standby, running, fault, shut down, environmental abnormality.                        |
+| Off-grid (backup power)                     | 0/1       | 1 when the system runs off the grid.                                                  |
+| Alarm, Active alarms                        | 0/1, text | Every alarm bit of the protocol, translated ("Battery: over-temperature").            |
+
+A feature whose register the firmware does not implement is left out.
+
+### Each inverter
+
+Inverter power, solar power, battery level, charge and discharge power and
+battery temperature (with a battery), inverter temperature, grid voltage and
+current (L1, L2, L3 on a three-phase inverter), the voltage and current of
+each PV string, the inverter state and its alarms. The device is named after
+the model the inverter gives ("SigenStor EC 6.0 SP").
+
+## Energy tracking
+
+With Gladys 5.2, the **Home consumption (total)** index feeds the energy
+tracking: Gladys derives the consumption of every half hour, and its cost when
+a contract is set. The other indexes (grid, battery, solar) are published in
+their own categories and are not counted as consumers. The cost computed on the
+home consumption includes the solar energy you consume yourself: when your
+electricity meter is already in Gladys, keep it as the main meter.
+
+## Battery control
+
+Off by default: the integration only reads. Once **Allow battery control** is
+on, the system device gets three selects (click **Update** in the Discovery
+tab):
+
+- **Battery control**: _Automatic (app mode)_ gives the control back to the
+  mode chosen in the mySigen app; _Maximum self-consumption_, _Forced charge
+  (grid first)_, _Forced charge (solar first)_, _Forced discharge (solar
+  first)_, _Forced discharge (battery first)_ and _Standby (battery idle)_ force
+  the remote EMS of the system.
+- **Charge power limit** and **Discharge power limit**: from 0 to 100 % of the
+  rated power, by steps of 10 %. A limit set elsewhere shows as the nearest
+  step.
+
+Only the registers the protocol documents as writable are written: remote EMS
+enable (40029), remote EMS control mode (40031), ESS maximum charging limit
+(40032) and maximum discharging limit (40034). Never start/stop, the grid code
+or the power dispatch registers. A forced mode stays until you set it back to
+automatic, even if Gladys stops: use it knowingly. These features are not
+switches, so voice assistants cannot drive them.
 
 ## Actions
 
-- **Test the weather provider** — performs a live request to Open-Meteo and
-  shows the current temperature and humidity under the button.
-- **Identify a device** — pick one of your devices in the list and it will
-  signal itself (the demo light "blinks" in the logs).
+**Test the connection** reads the plant and the configured inverters once and
+says what answers: mode, state, solar and grid power, battery level, model,
+serial number (the last four characters) and firmware of each inverter, and
+whether the battery control registers can be read. When no configured inverter
+answers, it looks for inverters at unit ids 1 to 16.
 
-## Scenes
+## Dashboard widget
 
-The integration adds its own cards to the scene editor (Gladys 5.1 or
-later), under the **Integrations** category:
+**Sigenergy energy** shows four live tiles (solar, home, grid, battery level)
+and a status list: which way the battery goes and at what power, the operating
+mode, the alarms, and the link when the system does not answer. With battery
+control on, three buttons (with a confirmation) set the battery to automatic,
+forced charge from the grid or forced discharge; the current one carries a
+check mark.
 
-- **Motion detected** (trigger) — starts the scene when a demo motion sensor
-  sees something move. Optionally pick the sensor and what moved (person,
-  animal); left empty, any detection matches. The following actions can
-  read what moved with `{{triggerEvent.data.target}}`.
-- **Identify a device** (action) — makes the chosen device signal itself.
-  It returns whether the device could signal itself, so the following
-  actions can depend on it.
+## Scene triggers
 
-## Dashboard
+- **A Sigenergy alarm is raised**: a new alarm appears. Variables: the device
+  name, the new alarm(s) and every active alarm, as text — ready for a
+  notification. An alarm already active when the integration starts does not
+  fire it.
+- **The Sigenergy system stops answering**: two reads in a row failed.
+  Variable: the error.
+- **The Sigenergy system answers again**.
 
-Add the **Demo status** widget to a dashboard: it shows the live
-temperature of the weather station and the power of the office plug, the
-connection the plug currently uses (orange when degraded) and the observed
-location. Its **Identify the light** button makes the demo light signal
-itself.
+The battery level, the powers and the off-grid state are device features: use
+the usual "device value" trigger for them.
+
+## Scene actions
+
+- **Set the Sigenergy battery mode**: one of the modes above. Output: the mode
+  applied.
+- **Set the Sigenergy battery limits**: charge and/or discharge limit in
+  watts, from 0 to the rated power; an empty field is left unchanged.
+
+Both need battery control allowed in the configuration, and fail otherwise.
+
+## Scene examples
+
+- **Off-peak charging**: at 22:00, _Set the Sigenergy battery mode_ to _Forced
+  charge (grid first)_ with _Set the Sigenergy battery limits_ at 3000 W; at
+  6:00, back to _Automatic (app mode)_.
+- **Use the surplus**: when _Grid exchange_ goes below −2000 W, start the
+  water heater; stop it when it goes above 0.
+- **Power cut**: when _Off-grid (backup power)_ goes to 1, send a message and
+  switch off the big consumers.
+- **Alarm**: on _A Sigenergy alarm is raised_, send the alarm text
+  ({{triggerEvent.data.alarm}}) to your phone.
+
+## Refresh and protocol rules
+
+The integration reads the system itself, at the chosen interval, whatever the
+polling of the Gladys core. One cycle sends about fifteen requests, one at a
+time (the protocol asks to wait for each answer, 1 s at most, before the next
+one), and never reads a range the protocol marks reserved. Gladys accepts 300
+states a minute: only the values that change are sent, and every value is sent
+again at least every 6 hours. A cumulative index is never sent lower than
+before (a reading glitch would count the whole index as consumed in 30
+minutes).
 
 ## Troubleshooting
 
-The integration logs everything it does: check the integration logs from the
-Gladys UI (or `docker logs` on the host) with `LOG_LEVEL=debug` for the full
-detail.
+- **"does not answer"**: check the address, that Modbus TCP is enabled and
+  saved in the mySigen app, and that nothing else blocks port 502. Some
+  firmwares accept a single Modbus TCP client: stop the other ones (Home
+  Assistant, an energy manager).
+- **"No inverter answers at unit id(s)"**: the plant answers but the inverter
+  ids are wrong. Press **Test the connection** to find them.
+- **A feature is missing**: your firmware does not implement its register.
+  Update the firmware, then press **Scan** in the Discovery tab and **Update**
+  the device.
+- **More details**: set `LOG_LEVEL=debug` on the integration to see every read.
+
+## Limits
+
+- Developed without the hardware: the values follow the protocol document,
+  not a real system.
+- One Sigenergy system per integration, up to 8 inverters.
+- The AC and DC chargers, the smart loads, the PSS and PID devices of the
+  protocol are not read yet.
+- Modbus TCP only (port 502, the system as server); not RS-485, not the
+  "TCP client" mode of 4G systems.
+- The battery commands are limited to the mode and the two limits; no
+  scheduling, no power dispatch.

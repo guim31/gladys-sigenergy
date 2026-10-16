@@ -16,8 +16,9 @@ its only runtime dependency. It started from the official JavaScript template.
 ```bash
 npm install
 npm test                                  # node --test, the built-in runner
-node --test test/devices.test.js          # one file
-node --test --test-name-pattern "plug"    # tests whose name matches
+node --test test/hub.test.js              # one file
+node --test --test-name-pattern "alarm"   # tests whose name matches
+node scripts/probe.mjs 192.0.2.10         # read-only probe of a real system
 npm run lint                              # ESLint
 npm run format:check                      # Prettier, as the CI runs it
 npm run format                            # Prettier, fix in place
@@ -31,16 +32,26 @@ pushing.
 ## Architecture
 
 ```
-index.js                          SDK wiring only: handlers registered before connect()
-src/devices/index.js              registry of the device blueprints + dispatch helpers
-src/devices/<type>.js             one device type per file (buildDevice, onPoll, onSetValue...)
+index.js                          SDK wiring only (src/app.js registers every handler)
+src/app.js                        every SDK handler, on a GladysIntegration or the SDK's fake Gladys
+src/hub.js                        the system: probe, devices, read cycles, reachability, alarms, status
+src/poller.js                     the container's own polling timer (core onPoll as fallback, #3198)
+src/model.js                      the features of the plant and inverter devices, from the probe
+src/probe.js                      what the system has (inverters, phases, strings, battery, registers)
+src/control.js                    battery commands (mode, limits): checks and documented writes only
+src/sigenergy/registers.js        the register map of the Sigenergy Modbus Protocol V2.9 + decoding
+src/sigenergy/enums.js            states, modes, control modes, alarm bits, in four languages
+src/modbus/                       Modbus TCP client (frames, connection, grouped reads)
+src/actions.js                    the "Test the connection" button
 src/scenes.js                     scene action handlers (manifest `scene_actions`)
-src/widgets.js                    dashboard widget handlers (manifest `widgets`)
+src/widgets.js                    the "Sigenergy energy" widget (manifest `widgets`)
 src/config.js                     DEFAULT_CONFIG (mirrors the manifest defaults) + normalization
-src/weather.js                    example driver (Open-Meteo)
+src/messages.js, src/names.js     texts sent to Gladys, feature names (en, fr, de, es)
+src/store.js, src/issues.js       /data persistence, repeated failures logged once
+scripts/probe.mjs                 read-only probe of a real system (never writes)
 gladys-assistant-integration.json manifest: name, config_schema, actions, image...
-docs/en.md, docs/fr.md            user documentation, re-hosted by Gladys (mandatory)
-test/                             node --test, against the SDK's fake Gladys (integration-sdk/testing)
+docs/{en,fr,de,es}.md             user documentation, re-hosted by Gladys (same sections)
+test/                             node --test, against the SDK's fake Gladys and a fake Modbus server
 .github/scripts/release.mjs       release helpers (manifest bump, changelog), tested in test/
 ```
 
@@ -70,8 +81,9 @@ test/                             node --test, against the SDK's fake Gladys (in
   `type: "provider"`: 5.1.0). `test/manifest.test.js` ties the manifest to the
   code (defaults, action, scene and widget handlers): change both sides
   together.
-- **User-facing text** is bilingual (English and French): action messages,
-  manifest texts, and `docs/en.md` / `docs/fr.md`, kept in sync.
+- **User-facing text** exists in English, French, German ("du") and Spanish
+  ("usted"): action messages, manifest texts, feature names, widget texts and
+  `docs/{en,fr,de,es}.md`, kept in sync (`test/i18n.test.js`).
 - **Style.** Prettier formats, ESLint catches mistakes. Comments explain why,
   in English. Tests never touch the network.
 
@@ -233,3 +245,53 @@ long, et sur un « Sie »/« Ihr… » de politesse en allemand. Le store exige 
 - Docs `en`, `fr`, `de`, `es` avec les mêmes sections.
 - Chauffe, ouverture, sécurité : ne rien rendre pilotable « comme un thermostat » ou par un assistant
   vocal quand une erreur serait dangereuse (leçon d'OctoPrint).
+
+## Sigenergy : propre à cette intégration
+
+**Protocole (Sigenergy Modbus Protocol V2.9, 2026-05-13)**
+
+- Modbus TCP, port 502, le système en serveur. **Unit 247 = l'installation** (« plant », registres
+  30000+ en lecture, 40000+ en paramètres), **0 = diffusion** (jamais utilisé : pas de réponse), chaque
+  **onduleur** a son identifiant 1 à 246 réglé dans mySigen (1 le plus souvent ; une **borne AC prend
+  souvent le 1**, l'onduleur passe alors à 2 — remarque de l'intégration HACS).
+- Fonction **4** pour les registres 3xxxx, **3** pour les 4xxxx, **6/16** pour écrire. Le document
+  (tableau 4-1 et exemples du §6.1) mélange 0x03 et 0x04 ; l'intégration HACS, utilisée par des
+  milliers d'installations, lit 4xxxx en 0x03 : c'est ce qui est fait ici. **À vérifier** sur le
+  matériel (`scripts/probe.mjs`).
+- Big-endian, mot de poids fort d'abord. Gains : puissance kW gain 1000 = brut en W, énergie kWh gain 100. U32 `0xFFFFFFFF` = « non valide » (40042/40044).
+- **Une requête à la fois**, en attendant la réponse (1 s max, §4.2). Une lecture groupée ne franchit
+  jamais une plage « Reserved » (`RESERVED`), et 124 registres au plus.
+- Un registre absent du micrologiciel (ajouté dans une version ultérieure : 30282/30284 en V2.7, 30286
+  en V2.9, 30280-30281 en V2.8) répond **exception 2**, et toute lecture groupée qui le couvre aussi :
+  le lecteur scinde le bloc (mémorisé). La sonde garde la liste des registres pris en charge dans
+  `/data` ; les fonctionnalités qui en dépendent sont omises.
+- L'installation n'a pas de numéro de série : son `platformId` est celui du **premier onduleur** qui
+  répond, figé dans `/data`. Sans onduleur joignable, l'installation n'est pas publiée (le statut le
+  dit, le bouton « Tester la connexion » cherche les identifiants 1 à 16).
+- Puissance de la maison : 30284 (« Total load power », V2.7), sinon 30282, sinon `30031 + 30005 +
+30194` (sortie onduleurs + réseau + onduleur tiers). Hypothèse non vérifiée : 30284 = ce que l'appli
+  affiche pour la maison.
+
+**Pièges découverts**
+
+- **Suivi d'énergie 5.2** : le cœur dérive conso 30 min + coût de **tout** `energy-sensor/index` (et
+  `energy-sensor/energy`, `switch/energy`) et le rattache au compteur principal. Seule la consommation
+  maison est donc en `energy-sensor/index` ; réseau → `grid-sensor/*-index`, batterie →
+  `battery-storage/*-index`, solaire → `energy-production-sensor/index`. Un test le fige.
+- **Compteurs cumulés à 0 par moments** (relevé par l'intégration HACS) : un index n'est jamais publié
+  à 0 ni plus bas que la dernière valeur, sinon Gladys compterait tout l'index en une demi-heure.
+- Chaînes PV au repos : tension/courant légèrement négatifs → planchers à 0.
+- Pilotage : `auto` = 40029 à 0 (retour au mode de l'appli) ; les autres modes = 40029 à 1 **puis**
+  40031 (ordre de l'intégration HACS). Le mode forcé persiste si Gladys s'arrête : documenté.
+- Les fonctionnalités de pilotage (`text/select`) ne sont publiées **que** si le pilotage est autorisé
+  (structure modifiée → « Mettre à jour ») : jamais de commande visible quand c'est désactivé. Les
+  limites sont des listes par pas de 10 % de la puissance nominale (pas de commande numérique neutre
+  dans Gladys) ; la valeur exacte en watts passe par l'action de scène.
+- L'objet résolu par une action de configuration arrive dans `data.message`, les sorties d'une action
+  de scène dans `data.outputs` (faux Gladys du SDK 0.15).
+- Le faux serveur Modbus répond par `setTimeout` : `t.mock.timers` le fige. Pour prouver le minuteur
+  interne, raccourcir `effectiveIntervalMs` plutôt que mocker les minuteurs.
+
+**Non vérifié faute de matériel** : tout. En priorité avec `scripts/probe.mjs` : lecture des 4xxxx en
+fonction 3, réponse à un identifiant absent (exception 11 ou silence), source de la puissance maison,
+relecture de 40029/40031 après écriture, comportement avec un second client Modbus.
