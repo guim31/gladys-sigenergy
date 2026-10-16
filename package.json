@@ -1,6 +1,6 @@
 {
   "name": "gladys-sigenergy",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Gladys Assistant integration for Sigenergy SigenStor systems over local Modbus TCP: solar, home, grid, battery.",
   "type": "module",
